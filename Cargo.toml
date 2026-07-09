@@ -1,9 +1,11 @@
 [package]
 name = "parting"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "Virtual monitor splitter for ultrawide displays on Linux/X11"
 license = "MIT"
+authors = ["Stefan Werfling <service@reuss-funkservice.de>"]
+readme = "README.md"
 
 [dependencies]
 eframe = "0.28"
@@ -11,3 +13,23 @@ egui = "0.28"
 anyhow = "1"
 x11rb = "0.13"
 image = { version = "0.25", default-features = false, features = ["png"] }
+
+[package.metadata.deb]
+maintainer = "Stefan Werfling <service@reuss-funkservice.de>"
+copyright = "2026, Stefan Werfling <service@reuss-funkservice.de>"
+license-file = ["LICENSE", "0"]
+extended-description = """\
+Parting carves one physical display into several logical monitors that the \
+window manager treats as separate screens. It applies xrandr --setmonitor \
+regions with a live preview UI, transparent divider overlays and an optional \
+window-snap daemon that docks dragged windows to virtual monitor halves."""
+depends = "$auto, x11-xserver-utils"
+section = "utils"
+priority = "optional"
+assets = [
+    ["target/release/parting", "usr/bin/", "755"],
+    ["assets/icon.svg", "usr/share/icons/hicolor/scalable/apps/parting.svg", "644"],
+    ["assets/icon.png", "usr/share/icons/hicolor/256x256/apps/parting.png", "644"],
+    ["assets/parting.desktop", "usr/share/applications/parting.desktop", "644"],
+    ["README.md", "usr/share/doc/parting/README.md", "644"],
+]

@@ -1,4 +1,5 @@
 mod app;
+mod i18n;
 mod snap;
 mod x11_helper;
 mod xrandr;

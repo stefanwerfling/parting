@@ -1,6 +1,7 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
+use crate::i18n::Lang;
 use crate::snap::{self, SnapConfig, SnapZone};
 use crate::xrandr::{self, Monitor, Output, SplitSpec};
 use eframe::egui;
@@ -22,6 +23,8 @@ pub struct PartingApp {
     snap_enabled_flag: Arc<AtomicBool>,
     snap_config: Arc<Mutex<SnapConfig>>,
     snap_trigger_radius: i32,
+
+    lang: Lang,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -54,6 +57,7 @@ impl PartingApp {
             snap_enabled_flag,
             snap_config,
             snap_trigger_radius: 40,
+            lang: Lang::De,
         };
         app.refresh();
         app.push_snap_zones();
@@ -201,14 +205,27 @@ fn part_label(idx: usize, count: usize) -> &'static str {
 
 impl eframe::App for PartingApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        let s = self.lang.strings();
         egui::TopBottomPanel::top("top").show(ctx, |ui| {
             ui.horizontal(|ui| {
                 ui.heading("Parting");
-                ui.label("virtual monitor splitter (X11 / xrandr)");
+                ui.label(s.app_subtitle);
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if ui.button("Aktualisieren").clicked() {
+                    if ui.button(s.refresh).clicked() {
                         self.refresh();
                     }
+                    let mut lang = self.lang;
+                    egui::ComboBox::from_id_source("lang")
+                        .selected_text(lang.flag_label())
+                        .show_ui(ui, |ui| {
+                            for l in Lang::ALL {
+                                ui.selectable_value(&mut lang, l, l.flag_label());
+                            }
+                        });
+                    if lang != self.lang {
+                        self.lang = lang;
+                    }
+                    ui.label(format!("{}:", s.language));
                 });
             });
         });
@@ -218,13 +235,13 @@ impl eframe::App for PartingApp {
             .default_width(260.0)
             .show(ctx, |ui| {
                 egui::ScrollArea::vertical().show(ui, |ui| {
-                    ui.heading("Physische Ausgänge");
+                    ui.heading(s.physical_outputs);
                     let outputs = self.outputs.clone();
                     for o in &outputs {
                         let text = if o.connected {
                             format!("{}  ·  {}×{}", o.name, o.width_px, o.height_px)
                         } else {
-                            format!("{}  ·  disconnected", o.name)
+                            format!("{}  ·  {}", o.name, s.disconnected)
                         };
                         let selected = self.selected_output.as_deref() == Some(o.name.as_str());
                         let resp = ui.add_enabled(
@@ -238,7 +255,7 @@ impl eframe::App for PartingApp {
 
                     ui.add_space(8.0);
                     ui.separator();
-                    ui.heading("Aktive Monitore");
+                    ui.heading(s.active_monitors);
                     for m in &self.monitors {
                         let icon = if m.is_virtual { "◨" } else { "▪" };
                         let primary = if m.is_primary { " ★" } else { "" };
@@ -255,20 +272,21 @@ impl eframe::App for PartingApp {
             let out = match self.selected().cloned() {
                 Some(o) => o,
                 None => {
-                    ui.label("Kein aktiver Ausgang ausgewählt.");
+                    ui.label(s.no_output_selected);
                     return;
                 }
             };
 
-            ui.heading(format!("Split für: {}", out.name));
+            ui.heading(format!("{}: {}", s.split_for, out.name));
             ui.label(format!(
-                "Native: {}×{} px · {}×{} mm · Position ({}, {})",
-                out.width_px, out.height_px, out.width_mm, out.height_mm, out.x, out.y
+                "{}: {}×{} px · {}×{} mm · {} ({}, {})",
+                s.native_prefix, out.width_px, out.height_px, out.width_mm, out.height_mm,
+                s.position, out.x, out.y
             ));
 
             ui.add_space(8.0);
             ui.horizontal(|ui| {
-                ui.label("Anzahl Splits:");
+                ui.label(s.split_count);
                 for n in [2usize, 3, 4] {
                     if ui
                         .selectable_label(self.split_count == n, n.to_string())
@@ -279,17 +297,17 @@ impl eframe::App for PartingApp {
                         self.split_ratios = vec![1.0 / n as f32; n];
                     }
                 }
-                if ui.button("gleich verteilen").clicked() {
+                if ui.button(s.distribute_evenly).clicked() {
                     let n = self.split_count;
                     self.split_ratios = vec![1.0 / n as f32; n];
                 }
             });
 
             ui.add_space(6.0);
-            ui.label("Verhältnisse (werden auf 1 normiert):");
+            ui.label(s.ratios_normalized);
             for (i, r) in self.split_ratios.iter_mut().enumerate() {
                 ui.horizontal(|ui| {
-                    ui.label(format!("Teil {}", i + 1));
+                    ui.label(format!("{} {}", s.part, i + 1));
                     ui.add(
                         egui::Slider::new(r, 0.05..=1.0)
                             .fixed_decimals(2)
@@ -300,7 +318,7 @@ impl eframe::App for PartingApp {
 
             ui.add_space(10.0);
             ui.separator();
-            ui.label("Vorschau:");
+            ui.label(s.preview);
             draw_preview(ui, &out, &self.split_ratios, self.split_count);
 
             ui.add_space(10.0);
@@ -308,11 +326,12 @@ impl eframe::App for PartingApp {
 
             let splits = self.build_splits();
             if let Some(ref sp) = splits {
-                ui.collapsing("Details der geplanten Splits", |ui| {
-                    for s in sp {
+                ui.collapsing(s.details, |ui| {
+                    for split in sp {
                         ui.label(format!(
                             "· {}  →  {}×{} px  @ ({},{})  ·  {}×{} mm",
-                            s.name, s.width_px, s.height_px, s.x, s.y, s.width_mm, s.height_mm
+                            split.name, split.width_px, split.height_px,
+                            split.x, split.y, split.width_mm, split.height_mm
                         ));
                     }
                 });
@@ -320,14 +339,14 @@ impl eframe::App for PartingApp {
 
             ui.add_space(6.0);
             ui.horizontal(|ui| {
-                let apply = ui.button("✓ Split anwenden");
-                let reset = ui.button("↺ Alle virtuellen Monitore entfernen");
+                let apply = ui.button(s.apply_split);
+                let reset = ui.button(s.reset_all);
 
                 if apply.clicked() {
                     if let Some(sp) = splits {
                         match xrandr::apply_split(&out.name, &sp) {
                             Ok(_) => {
-                                self.status = format!("{} Splits für {} angewendet.", sp.len(), out.name);
+                                self.status = format!("{} {}: {}", sp.len(), s.status_applied, out.name);
                                 self.last_error = None;
                             }
                             Err(e) => self.last_error = Some(format!("apply_split: {e}")),
@@ -338,7 +357,11 @@ impl eframe::App for PartingApp {
                 if reset.clicked() {
                     match xrandr::remove_all_virtual() {
                         Ok(n) => {
-                            self.status = format!("{n} virtuelle Monitore entfernt.");
+                            self.status = if s.status_removed_prefix.is_empty() {
+                                format!("{n} {}", s.status_removed_suffix)
+                            } else {
+                                format!("{} {n} {}", s.status_removed_prefix, s.status_removed_suffix)
+                            };
                             self.last_error = None;
                         }
                         Err(e) => self.last_error = Some(format!("remove_all: {e}")),
@@ -351,56 +374,50 @@ impl eframe::App for PartingApp {
                 ui.colored_label(egui::Color32::from_rgb(120, 200, 120), &self.status);
             }
             if let Some(e) = &self.last_error {
-                ui.colored_label(egui::Color32::from_rgb(220, 100, 100), format!("Fehler: {e}"));
+                ui.colored_label(egui::Color32::from_rgb(220, 100, 100),
+                    format!("{}: {e}", s.error_prefix));
             }
 
             ui.add_space(14.0);
             ui.separator();
-            ui.heading("Trennlinien-Overlay");
-            ui.label(
-                "Zeigt an den Grenzen der virtuellen Monitore eine dünne farbige Linie \
-                 (transparent, immer im Vordergrund, klick-durchlässig). Rein visuell — \
-                 verändert nichts an den Splits selbst.",
-            );
+            ui.heading(s.dividers_heading);
+            ui.label(s.dividers_description);
 
-            ui.checkbox(&mut self.show_dividers, "Trennlinien anzeigen");
+            ui.checkbox(&mut self.show_dividers, s.show_dividers);
 
             ui.add_enabled_ui(self.show_dividers, |ui| {
                 ui.horizontal(|ui| {
-                    ui.label("Breite (px):");
+                    ui.label(s.width_px);
                     ui.add(egui::Slider::new(&mut self.divider_width_px, 1.0..=20.0).integer());
                 });
                 ui.horizontal(|ui| {
-                    ui.label("Deckkraft:");
+                    ui.label(s.opacity);
                     ui.add(egui::Slider::new(&mut self.divider_opacity, 20..=255));
                 });
                 ui.horizontal(|ui| {
-                    ui.label("Farbe:");
+                    ui.label(s.color);
                     ui.color_edit_button_srgb(&mut self.divider_rgb);
-                    if ui.small_button("Cyan").clicked() { self.divider_rgb = [0, 220, 220]; }
-                    if ui.small_button("Rot").clicked() { self.divider_rgb = [230, 60, 60]; }
-                    if ui.small_button("Weiß").clicked() { self.divider_rgb = [240, 240, 240]; }
-                    if ui.small_button("Gelb").clicked() { self.divider_rgb = [255, 210, 50]; }
+                    if ui.small_button(s.color_cyan).clicked() { self.divider_rgb = [0, 220, 220]; }
+                    if ui.small_button(s.color_red).clicked() { self.divider_rgb = [230, 60, 60]; }
+                    if ui.small_button(s.color_white).clicked() { self.divider_rgb = [240, 240, 240]; }
+                    if ui.small_button(s.color_yellow).clicked() { self.divider_rgb = [255, 210, 50]; }
                 });
                 let n = self.compute_dividers().len();
-                ui.label(format!("Aktive Grenzen: {n}"));
+                ui.label(format!("{}: {n}", s.active_edges));
             });
 
             ui.add_space(14.0);
             ui.separator();
-            ui.heading("Fenster-Andock");
-            ui.label(
-                "Beim Ziehen und Loslassen eines Fensters nahe einer virtuellen \
-                 Monitor-Grenze wird es auf die entsprechende Hälfte gesnapped.",
-            );
+            ui.heading(s.snap_heading);
+            ui.label(s.snap_description);
             let mut snap_on = self.snap_enabled_flag.load(Ordering::Relaxed);
-            if ui.checkbox(&mut snap_on, "Fenster-Andock aktiv").changed() {
+            if ui.checkbox(&mut snap_on, s.snap_active).changed() {
                 self.snap_enabled_flag.store(snap_on, Ordering::Relaxed);
                 self.push_snap_zones();
             }
             ui.add_enabled_ui(snap_on, |ui| {
                 ui.horizontal(|ui| {
-                    ui.label("Fangradius (px):");
+                    ui.label(s.snap_radius);
                     if ui
                         .add(egui::Slider::new(&mut self.snap_trigger_radius, 5..=200))
                         .changed()
@@ -413,11 +430,8 @@ impl eframe::App for PartingApp {
                     .lock()
                     .map(|c| c.zones.len())
                     .unwrap_or(0);
-                ui.label(format!("Aktive Snap-Zonen: {zones}"));
-                ui.label(
-                    "Hinweis: das aktive Fenster ist entscheidend — vor dem Ziehen \
-                     kurz auf den Titel klicken, damit es fokussiert ist.",
-                );
+                ui.label(format!("{}: {zones}", s.active_snap_zones));
+                ui.label(s.snap_hint);
             });
             });
         });

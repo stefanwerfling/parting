@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Parting
+GenericName=Monitor Splitter
+Comment=Virtual monitor splitter for ultrawide displays (X11)
+Comment[de]=Virtueller Monitorteiler für Ultrawide-Displays (X11)
+Exec=parting
+Icon=parting
+Terminal=false
+Categories=Utility;System;Settings;
+Keywords=xrandr;monitor;display;split;ultrawide;
+StartupNotify=true
