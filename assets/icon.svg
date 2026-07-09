@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#20242c"/>
+      <stop offset="1" stop-color="#12141a"/>
+    </linearGradient>
+    <linearGradient id="left" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#5a95d0"/>
+      <stop offset="1" stop-color="#3a6a9e"/>
+    </linearGradient>
+    <linearGradient id="right" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#d29350"/>
+      <stop offset="1" stop-color="#9c6432"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="2.2" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect x="0" y="0" width="256" height="256" rx="48" ry="48" fill="url(#bg)"/>
+
+  <g transform="translate(20 70)">
+    <rect x="0" y="0" width="216" height="96" rx="8" ry="8"
+          fill="#0a0c11" stroke="#3a3f4a" stroke-width="2"/>
+
+    <rect x="8"   y="8" width="98"  height="80" rx="3" ry="3" fill="url(#left)"/>
+    <rect x="110" y="8" width="98"  height="80" rx="3" ry="3" fill="url(#right)"/>
+
+    <line x1="108" y1="4" x2="108" y2="92"
+          stroke="#00dcdc" stroke-width="4" stroke-linecap="round"
+          filter="url(#glow)"/>
+
+    <rect x="90"  y="98" width="36" height="4"  fill="#3a3f4a"/>
+    <rect x="80"  y="102" width="56" height="6" rx="2" ry="2" fill="#4a505c"/>
+  </g>
+
+  <g fill="#e6e9ef" font-family="'Inter', 'Segoe UI', system-ui, sans-serif"
+     font-weight="700" text-anchor="middle">
+    <text x="128" y="216" font-size="34" letter-spacing="2">parting</text>
+  </g>
+</svg>

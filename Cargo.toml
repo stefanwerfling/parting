@@ -1,0 +1,13 @@
+[package]
+name = "parting"
+version = "0.1.0"
+edition = "2021"
+description = "Virtual monitor splitter for ultrawide displays on Linux/X11"
+license = "MIT"
+
+[dependencies]
+eframe = "0.28"
+egui = "0.28"
+anyhow = "1"
+x11rb = "0.13"
+image = { version = "0.25", default-features = false, features = ["png"] }
